@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, CheckCircle2, RefreshCw } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Clock3, RefreshCw, TrainFront } from "lucide-react";
 import { getCanonicalTrip, getJourneyCatalogue, runConfiguredRecovery, SutraApiError } from "@/lib/api";
 import { presentImpact, presentRun, presentTrip } from "@/lib/rail-presentation";
 import type { ConstraintOverrides, JourneyCatalogueEntry, RecoveryPriority, RecoveryRunResult, SupportedDisruptionProfile, Trip } from "@/lib/domain/types";
@@ -15,6 +16,29 @@ function delayOptions(profile?: SupportedDisruptionProfile) {
   const range = profile?.delayRange;
   if (!range || range.stepMinutes <= 0) return [];
   return Array.from({ length: Math.floor((range.maximumMinutes - range.minimumMinutes) / range.stepMinutes) + 1 }, (_, index) => range.minimumMinutes + index * range.stepMinutes);
+}
+
+function dateLabel(value: string) {
+  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(date);
+}
+
+function timeLabel(value?: string) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+function segmentLabel(journey: JourneyCatalogueEntry, profile: SupportedDisruptionProfile) {
+  const item = journey.items.find(value => value.id === profile.bookingId);
+  if (item?.origin && item.destination) return `${item.origin} → ${item.destination}`;
+  return item?.label.replace(/^Simulated\s+/i, "").replace(/^Rail [A-Z]$/i, "the train service") ?? "The affected service";
+}
+
+function delayLabel(minutes: number) {
+  if (minutes < 60) return `${minutes} minutes`;
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours} hour${hours === 1 ? "" : "s"}` : `${hours.toFixed(1)} hours`;
 }
 
 function DependencyChecks({ run }: { run: RecoveryRunResult }) {
@@ -37,6 +61,7 @@ function DependencyChecks({ run }: { run: RecoveryRunResult }) {
 }
 
 export function RecoveryWorkbench() {
+  const reduceMotion = useReducedMotion();
   const [catalogue, setCatalogue] = useState<JourneyCatalogueEntry[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [trip, setTrip] = useState<Trip>();
@@ -80,50 +105,101 @@ export function RecoveryWorkbench() {
   }, [selectedJourney]);
 
   useEffect(() => { setDelay(delayOptions(profile)[0]); }, [profile]);
-  const valid = Boolean(trip && profile && (profile.kind === "cancellation" || delays.includes(delay ?? -1)) && arrival && budget !== "" && Number.isFinite(Number(budget)) && Number(budget) >= 0);
+  const budgetIsValid = budget !== "" && Number.isFinite(Number(budget)) && Number(budget) >= 0;
+  const valid = Boolean(trip && profile && (profile.kind === "cancellation" || delays.includes(delay ?? -1)) && arrival && budgetIsValid);
+  const missingFields = [
+    !trip && !loadingTrip ? "Wait for the trip details to finish loading." : undefined,
+    !profile ? "Choose what happened to your trip." : undefined,
+    profile?.kind === "delay" && !delays.includes(delay ?? -1) ? "Choose how long the delay is." : undefined,
+    !arrival ? "Set the latest time you need to arrive." : undefined,
+    budget === "" ? "Enter the most extra you can spend." : !budgetIsValid ? "Enter a valid budget of ₹0 or more." : undefined,
+  ].filter((message): message is string => Boolean(message));
   const invalidateRun = () => { setRun(undefined); setResultTab("best"); };
   const calculate = async () => {
     if (!trip || !profile || !valid) return;
     const overrides: ConstraintOverrides = { latestArrivalAt: toApi(arrival), maxExtraBudget: Number(budget), noOvernight, priority };
     const disruption = { source: "SIMULATED" as const, scenarioId: profile.id, bookingId: profile.bookingId, kind: profile.kind, ...(profile.kind === "delay" ? { delayMinutes: delay } : {}) };
     setCalculating(true); setError(undefined); setTechnicalError(false); setRun(undefined); setResultTab("best");
-    try { setRun(await runConfiguredRecovery({ tripId: trip.id, tripVersion: trip.version, disruption, constraintOverrides: overrides })); setActiveStep(4); window.scrollTo({ top: 0, behavior: "smooth" }); }
-    catch (cause) { setTechnicalError(cause instanceof SutraApiError && cause.error.audit?.status === "TECHNICAL_ERROR"); setError(cause instanceof SutraApiError ? cause.error.message : "Recovery could not be calculated. Please retry."); setActiveStep(4); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    try { setRun(await runConfiguredRecovery({ tripId: trip.id, tripVersion: trip.version, disruption, constraintOverrides: overrides })); setActiveStep(4); window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }); }
+    catch (cause) { setTechnicalError(cause instanceof SutraApiError && cause.error.audit?.status === "TECHNICAL_ERROR"); setError(cause instanceof SutraApiError ? cause.error.message : "Recovery could not be calculated. Please retry."); setActiveStep(4); window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }); }
     finally { setCalculating(false); }
   };
   const resetResult = () => { setRun(undefined); setResultTab("best"); setActiveStep(1); };
   const projection = trip && run ? presentRun(trip, run) : undefined;
-  const openStep = (step: 1 | 4) => { if (step === 1 || run) { setActiveStep(step); window.scrollTo({ top: 0, behavior: "smooth" }); } };
+  const openStep = (step: 1 | 4) => { if (step === 1 || run) { setActiveStep(step); window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }); } };
   const tabs: { id: RecoveryResultTab; label: string; description: string }[] = [
-    { id: "best", label: "Best Recovery", description: "Recommendation, timing and fit" },
-    { id: "journey", label: "Journey & Itinerary", description: "Original and repaired journey" },
-    { id: "compare", label: "Compare & Explain", description: "Alternatives and reasoning" },
+    { id: "best", label: "Recommended option", description: "The best match and what to do next" },
+    { id: "journey", label: "Your journey", description: "See what changes on your route" },
+    { id: "compare", label: "Compare options", description: "Compare alternatives and why they differ" },
   ];
 
-  return <main id="workbench-top" className="min-h-screen bg-bg px-5 py-8 text-ink md:px-8">
+  return <main id="workbench-top" className="min-h-screen bg-bg px-5 py-6 text-ink md:px-8 md:py-8">
     <div className="mx-auto max-w-6xl pb-16">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-6">
-        <div><Link href="/" className="inline-flex items-center gap-2 text-[14px] text-muted hover:text-ink"><ArrowLeft className="size-4" />Back home</Link><h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Find a way forward</h1><p className="mt-2 max-w-3xl text-ink2">Tell Sutra what happened and what matters to you. We will compare options that fit.</p><p className="mt-2 text-sm text-muted">This tool evaluates options only. It does not book or change tickets.</p></div>
-        <span className="rounded-full border border-warn/60 bg-warn/10 px-3 py-1.5 font-mono text-[11px] tracking-wider text-warn">SIMULATED DATA</span>
+        <div><Link href="/" className="inline-flex items-center gap-2 text-[14px] text-muted hover:text-ink"><ArrowLeft className="size-4" />Back home</Link><h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Find a way forward</h1><p className="mt-2 max-w-3xl text-ink2">Tell Sutra what happened and what matters to you. We will compare options that fit.</p><p className="mt-2 text-sm text-muted">Sutra compares options only. It will not book or change your tickets.</p></div>
+        <span className="rounded-full border border-warn/60 bg-warn/10 px-3 py-1.5 text-[11px] font-medium tracking-wide text-warn">DEMO · SAMPLE TRIPS</span>
       </header>
 
       <nav aria-label="Recovery steps" className="sticky top-3 z-20 mt-5 rounded-2xl border border-line bg-bg/95 p-2 shadow-l2 backdrop-blur-xl">
         <ol className="grid gap-2 sm:grid-cols-2">
-          {[{ step: 1 as const, label: "Your trip & preferences", complete: Boolean(trip && profile && valid) }, { step: 4 as const, label: "Your options", complete: Boolean(run) }].map(item => <li key={item.step}><button type="button" onClick={() => openStep(item.step)} disabled={item.step === 4 && !run} aria-current={activeStep === item.step ? "step" : undefined} className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${activeStep === item.step ? "border-green/70 bg-green-soft/45 text-ink shadow-[0_0_0_1px_rgba(124,255,167,0.12)]" : item.step === 1 || run ? "border-line bg-surface/45 text-ink2 hover:border-green/50 hover:bg-green-soft/20" : "border-line/70 bg-surface/20 text-muted opacity-70"}`}><span className={`flex size-7 shrink-0 items-center justify-center rounded-full font-mono text-xs ${item.complete ? "bg-green-bright text-bg" : activeStep === item.step ? "border border-green-bright text-green-bright" : "border border-line text-muted"}`}>{item.complete ? <CheckCircle2 className="size-4" /> : item.step === 1 ? "01" : "02"}</span><span><span className="block text-sm font-medium">{item.label}</span><span className="block text-xs text-muted">{item.step === 1 ? "Tell us about your journey and what you need" : "Review and compare the available options"}</span></span></button></li>)}
+          {[{ step: 1 as const, label: "Tell us about your trip", complete: Boolean(trip && profile && valid) }, { step: 4 as const, label: "See your options", complete: Boolean(run) }].map(item => <li key={item.step}><button type="button" onClick={() => openStep(item.step)} disabled={item.step === 4 && !run} aria-current={activeStep === item.step ? "step" : undefined} className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${activeStep === item.step ? "border-green/70 bg-green-soft/45 text-ink shadow-[0_0_0_1px_rgba(124,255,167,0.12)]" : item.step === 1 || run ? "border-line bg-surface/45 text-ink2 hover:border-green/50 hover:bg-green-soft/20" : "border-line/70 bg-surface/20 text-muted opacity-70"}`}><span className={`flex size-7 shrink-0 items-center justify-center rounded-full font-mono text-xs ${item.complete ? "bg-green-bright text-bg" : activeStep === item.step ? "border border-green-bright text-green-bright" : "border border-line text-muted"}`}>{item.complete ? <CheckCircle2 className="size-4" /> : item.step === 1 ? "01" : "02"}</span><span><span className="block text-sm font-medium">{item.label}</span><span className="block text-xs text-muted">{item.step === 1 ? "Choose a trip and tell us what changed" : "See which options fit your needs"}</span></span></button></li>)}
         </ol>
       </nav>
 
       {error && <div role="alert" className="mt-5 flex items-start justify-between gap-4 rounded-[14px] border border-danger/60 bg-danger/10 p-4 text-danger"><span><AlertTriangle className="mr-2 inline size-4" /><strong>{technicalError ? "Technical error — no recovery result was created. " : ""}</strong>{error}</span><Btn variant="ghost" onClick={trip ? calculate : loadCatalogue}><RefreshCw className="size-4" />Retry</Btn></div>}
 
-      {activeStep === 1 && <section aria-labelledby="workbench-configuration" className="sutra-card mt-6 rounded-[18px] border border-line bg-surface/60 p-5 shadow-l2 md:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-[12px] uppercase tracking-[0.14em] text-green-bright">Your trip and preferences</p><h2 id="workbench-configuration" className="mt-2 font-display text-2xl font-semibold">What happened, and what would work for you?</h2><p className="mt-2 max-w-3xl text-[15px] text-ink2">Choose your journey, describe the disruption, then set the limits Sutra should respect.</p></div>{trip && <span className="inline-flex items-center gap-2 rounded-full border border-green/40 bg-green-soft/25 px-3 py-1.5 text-[13px] text-ink2"><CheckCircle2 className="size-4 text-green-bright" />Trip loaded</span>}</div>
-        {loadingCatalogue ? <p className="mt-5 text-muted">Loading simulated journey catalogue…</p> : !catalogue.length ? <p className="mt-5 text-warn">No supported journeys are currently available.</p> : <div className="mt-6 grid gap-5 md:grid-cols-2"><label className="grid gap-1.5 text-[14px]" htmlFor="journey">Your journey<select id="journey" value={selectedId} onChange={event => setSelectedId(event.target.value)} disabled={loadingTrip || calculating} className="rounded-[10px] border border-line bg-bg px-3 py-2">{catalogue.map(journey => <option key={journey.tripId} value={journey.tripId}>{journey.label} · {journey.journeyDate}</option>)}</select></label><label className="grid gap-1.5 text-[14px]" htmlFor="disruption">What happened?<select id="disruption" value={profileId} onChange={event => { setProfileId(event.target.value); invalidateRun(); }} disabled={!trip || calculating} className="rounded-[10px] border border-line bg-bg px-3 py-2">{selectedJourney?.supportedDisruptions.map(value => <option key={value.id} value={value.id}>{value.label} · {value.bookingLabel}</option>)}</select></label>{profile?.kind === "delay" && <label className="grid gap-1.5 text-[14px]" htmlFor="delay">How long is the delay?<select id="delay" value={delay ?? ""} onChange={event => { setDelay(Number(event.target.value)); invalidateRun(); }} disabled={calculating} className="rounded-[10px] border border-line bg-bg px-3 py-2">{delays.map(value => <option key={value} value={value}>{value} minutes</option>)}</select></label>}{profile?.kind === "cancellation" && <p className="self-end rounded-[10px] border border-line bg-bg px-3 py-2 text-[14px] text-muted">Cancellation selected. No delay duration is needed.</p>}<label className="grid gap-1.5 text-[14px]" htmlFor="latest-arrival">I need to arrive by<input id="latest-arrival" type="datetime-local" value={arrival} onChange={event => { setArrival(event.target.value); invalidateRun(); }} disabled={calculating} className="rounded-[10px] border border-line bg-bg px-3 py-2" /></label><label className="grid gap-1.5 text-[14px]" htmlFor="budget">Maximum extra amount I can spend<input id="budget" type="number" min="0" value={budget} onChange={event => { setBudget(event.target.value); invalidateRun(); }} disabled={calculating} className="rounded-[10px] border border-line bg-bg px-3 py-2" /></label><label className="flex items-center gap-3 self-end rounded-[10px] border border-line bg-bg px-3 py-3"><input id="overnight" type="checkbox" checked={noOvernight} onChange={event => { setNoOvernight(event.target.checked); invalidateRun(); }} disabled={calculating} className="size-4 accent-green" /><span><strong>No overnight travel</strong><span className="block text-[12px] text-muted">Avoid late-night or overnight options</span></span></label></div>}
-        {loadingTrip && <p className="mt-4 text-[14px] text-muted">Loading canonical trip details…</p>}
-        <fieldset className="mt-6"><legend className="text-[14px] font-medium">What should Sutra prefer?</legend><div className="mt-3 flex flex-wrap gap-3">{(["LOWER_COST", "EARLIER_ARRIVAL"] as const).map(value => <label key={value} className="flex items-center gap-2 rounded-[10px] border border-line bg-bg px-3 py-2"><input type="radio" name="workbench-priority" checked={priority === value} onChange={() => { setPriority(value); invalidateRun(); }} disabled={calculating} className="accent-green" />{value === "LOWER_COST" ? "Prefer spending less" : "Prefer arriving earlier"}</label>)}</div></fieldset>
-        <div className="mt-7 flex flex-wrap items-center justify-end gap-3"><Btn onClick={calculate} disabled={!valid || calculating}>{calculating ? "Checking options…" : "Find My Best Travel Option"}</Btn>{!valid && <span className="text-[13px] text-muted">Complete the fields above to continue.</span>}</div>
-      </section>}
+      {activeStep === 1 && <motion.section key="trip-form" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : 0.22, ease: "easeOut" }} aria-labelledby="workbench-configuration" className="sutra-card mt-5 rounded-[18px] border border-line bg-surface/60 p-5 shadow-l2 md:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-[12px] uppercase tracking-[0.14em] text-green-bright">Your trip and preferences</p><h2 id="workbench-configuration" className="mt-2 font-display text-2xl font-semibold">Tell us about your trip</h2><p className="mt-2 max-w-3xl text-[15px] text-ink2">Choose the trip, tell us what changed, and set your arrival and budget limits.</p></div>{trip && <span className="inline-flex items-center gap-2 rounded-full border border-green/40 bg-green-soft/25 px-3 py-1.5 text-[13px] text-ink2"><CheckCircle2 className="size-4 text-green-bright" />Trip loaded</span>}</div>
+        {loadingCatalogue ? <div role="status" aria-label="Finding available trips" aria-busy="true" className="mt-6 space-y-3"><p className="text-sm text-ink2">Finding trips you can choose from…</p><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map(item => <div key={item} className="motion-reduce:animate-none animate-pulse rounded-xl border border-line bg-bg/60 p-4"><div className="h-9 w-9 rounded-lg bg-line/70" /><div className="mt-4 h-4 w-3/4 rounded bg-line/60" /><div className="mt-3 h-3 w-1/2 rounded bg-line/50" /></div>)}</div></div> : !catalogue.length ? <p className="mt-5 rounded-xl border border-warn/40 bg-warn/5 p-4 text-warn">No trips are available right now. Please try again in a moment.</p> : <div className="mt-6 space-y-7">
+          <section aria-labelledby="choose-trip-heading">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div><h3 id="choose-trip-heading" className="text-base font-semibold">1. Choose your trip</h3><p className="mt-1 text-sm text-muted">Pick the route that was affected.</p></div>
+              <span className="text-xs text-muted">{catalogue.length} sample trips</span>
+            </div>
+            <div role="group" aria-label="Available trips" className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {catalogue.map(journey => {
+                const selected = selectedId === journey.tripId;
+                const transportItems = journey.items.filter(item => item.kind === "transport");
+                const firstTransport = transportItems[0];
+                const lastTransport = transportItems[transportItems.length - 1];
+                const departure = timeLabel(firstTransport?.departureAt);
+                const finalArrival = timeLabel(lastTransport?.arrivalAt);
+                return <button key={journey.tripId} type="button" aria-pressed={selected} disabled={calculating || loadingTrip} onClick={() => { if (selectedId !== journey.tripId) { setSelectedId(journey.tripId); invalidateRun(); } }} className={`group min-h-[142px] rounded-xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-green/60 hover:bg-green-soft/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-bright disabled:cursor-wait disabled:opacity-70 motion-reduce:transform-none motion-reduce:transition-none ${selected ? "border-green-bright bg-green-soft/20 shadow-[0_0_0_1px_rgba(121,226,168,0.18)]" : "border-line bg-bg/60"}`}>
+                  <div className="flex items-center justify-between gap-2"><span className={`grid size-9 place-items-center rounded-lg ${selected ? "bg-green-bright text-bg" : "bg-surface text-ink2"}`}><TrainFront aria-hidden className="size-5" /></span>{selected && <motion.span initial={reduceMotion ? false : { scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: reduceMotion ? 0 : 0.16 }}><CheckCircle2 aria-label="Selected trip" className="size-5 text-green-bright" /></motion.span>}</div>
+                  <p className="mt-3 flex items-center gap-1.5 text-[15px] font-semibold leading-snug text-ink"><span>{journey.origin}</span><ArrowRight aria-hidden className="size-4 shrink-0 text-muted" /><span>{journey.destination}</span></p>
+                  <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted"><span className="inline-flex items-center gap-1"><CalendarDays aria-hidden className="size-3.5" />{dateLabel(journey.journeyDate)}</span>{departure && <span className="inline-flex items-center gap-1"><Clock3 aria-hidden className="size-3.5" />{departure}{finalArrival ? ` – ${finalArrival}` : ""}</span>}</p>
+                </button>;
+              })}
+            </div>
+          </section>
+          {trip && selectedJourney && !loadingTrip && <section aria-labelledby="choose-disruption-heading">
+            <div><h3 id="choose-disruption-heading" className="text-base font-semibold">2. What happened?</h3><p className="mt-1 text-sm text-muted">Choose the problem affecting this journey.</p></div>
+            <div role="group" aria-label="Disruption affecting this trip" className="mt-3 grid gap-3 sm:grid-cols-2">
+              {selectedJourney.supportedDisruptions.map(value => {
+                const selected = profileId === value.id;
+                const isDelay = value.kind === "delay";
+                return <button key={value.id} type="button" aria-pressed={selected} disabled={calculating} onClick={() => { setProfileId(value.id); invalidateRun(); }} className={`flex min-h-[112px] items-start gap-3 rounded-xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-green/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-bright disabled:opacity-70 motion-reduce:transform-none motion-reduce:transition-none ${selected ? "border-green-bright bg-green-soft/20 shadow-[0_0_0_1px_rgba(121,226,168,0.14)]" : "border-line bg-bg/60"}`}>
+                  <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${selected ? "bg-green-bright text-bg" : "bg-surface text-ink2"}`}>{isDelay ? <Clock3 aria-hidden className="size-5" /> : <AlertTriangle aria-hidden className="size-5" />}</span>
+                  <span className="min-w-0 flex-1"><span className="block font-semibold text-ink">{isDelay ? "Delayed service" : "Cancelled service"}</span><span className="mt-1 block text-sm text-ink2">{segmentLabel(selectedJourney, value)}</span><span className="mt-1.5 block text-xs text-muted">{isDelay ? "This part of the trip is running late." : "This part of the trip will not run."}</span></span>
+                  {selected && <CheckCircle2 aria-hidden className="mt-0.5 size-5 shrink-0 text-green-bright" />}
+                </button>;
+              })}
+            </div>
+          </section>}
+          {profile?.kind === "delay" && <fieldset>
+            <legend className="text-base font-semibold">3. How long is the delay?</legend>
+            <p className="mt-1 text-sm text-muted">Choose the delay you were told about.</p>
+            <div role="group" aria-label="Delay length" className="mt-3 flex flex-wrap gap-2">
+              {delays.map(value => { const selected = delay === value; return <button key={value} type="button" aria-pressed={selected} disabled={calculating} onClick={() => { setDelay(value); invalidateRun(); }} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-bright ${selected ? "border-green-bright bg-green-soft/30 text-ink" : "border-line bg-bg text-ink2 hover:border-green/50"}`}>{delayLabel(value)}{selected && <CheckCircle2 aria-hidden className="ml-2 inline size-4 text-green-bright" />}</button>; })}
+            </div>
+          </fieldset>}
+        </div>}
+        {loadingTrip && <p role="status" className="mt-4 text-[14px] text-ink2">Getting your trip details ready…</p>}
+        <section className="mt-7 rounded-xl border border-line bg-bg/35 p-4 md:p-5" aria-labelledby="trip-limits-heading"><h3 id="trip-limits-heading" className="text-base font-semibold">4. Set your limits</h3><p className="mt-1 text-sm text-muted">Sutra will only recommend options that pass these rules.</p><div className="mt-4 grid gap-5 md:grid-cols-2"><fieldset className="md:col-span-2"><legend className="text-[14px] font-medium">What matters most to you?</legend><p className="mt-1 text-[13px] text-muted">Choose the priority Sutra should use when comparing suitable options.</p><div className="mt-3 grid gap-3 sm:grid-cols-2">{(["LOWER_COST", "EARLIER_ARRIVAL"] as const).map(value => { const selected = priority === value; return <motion.label key={value} whileTap={reduceMotion ? undefined : { scale: 0.99 }} className={`flex min-h-[76px] cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors duration-200 ${selected ? "border-green-bright bg-green-soft/25 shadow-[0_0_0_1px_rgba(121,226,168,0.12)]" : "border-line bg-bg hover:border-green/50 hover:bg-green-soft/10"}`}><input type="radio" name="workbench-priority" checked={selected} onChange={() => { setPriority(value); invalidateRun(); }} disabled={calculating} className="size-4 shrink-0 accent-green" /><span className="flex-1"><span className="block font-medium">{value === "LOWER_COST" ? "Keep costs low" : "Arrive as early as possible"}</span><span className="mt-0.5 block text-[13px] text-muted">{value === "LOWER_COST" ? "Prefer options that cost less." : "Prefer options that get you there sooner."}</span></span>{selected && <motion.span initial={reduceMotion ? false : { scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: reduceMotion ? 0 : 0.16 }}><CheckCircle2 aria-hidden className="size-5 text-green-bright" /></motion.span>}</motion.label>; })}</div></fieldset></div></section>
+        <div className="mt-7 flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between"><div aria-live="polite" className="min-w-0 text-[13px] text-muted">{!valid && !loadingCatalogue && !loadingTrip && catalogue.length > 0 && missingFields.length > 0 ? <><p className="font-medium text-ink2">To continue, please check:</p><ul className="mt-1 space-y-1">{missingFields.map(message => <li key={message}>• {message}</li>)}</ul></> : valid ? <p className="inline-flex items-center gap-2 text-green-bright"><CheckCircle2 className="size-4" />Everything is ready to check.</p> : null}</div><Btn onClick={calculate} disabled={!valid || calculating || loadingTrip || loadingCatalogue}>{calculating ? "Checking suitable options…" : "Find my best option"}</Btn></div>
+      </motion.section>}
 
-      {activeStep === 4 && <section aria-labelledby="recovery-options" className="mt-6"><div className="rounded-[18px] border border-green/50 bg-green-soft/20 p-5 md:p-6"><p className="font-mono text-[12px] uppercase tracking-[0.14em] text-green-bright">Your options</p><h2 id="recovery-options" className="mt-2 font-display text-2xl font-semibold">Choose how you want to review the result</h2><p className="mt-2 text-[15px] text-ink2">Start with the best option, then open the journey details or compare alternatives.</p></div><div role="tablist" aria-label="Recovery result views" className="mt-4 grid gap-2 rounded-2xl border border-line bg-surface/70 p-2 sm:grid-cols-3">{tabs.map(tab => <button key={tab.id} type="button" role="tab" aria-selected={resultTab === tab.id} aria-controls={`recovery-tabpanel-${tab.id}`} onClick={() => setResultTab(tab.id)} className={`rounded-xl border px-3 py-3 text-left transition ${resultTab === tab.id ? "border-green/70 bg-green-soft/45 text-ink" : "border-transparent text-ink2 hover:border-line hover:bg-bg/60"}`}><span className="block text-sm font-semibold">{tab.label}</span><span className="mt-1 block text-xs text-muted">{tab.description}</span></button>)}</div><div id={`recovery-tabpanel-${resultTab}`} role="tabpanel" tabIndex={0} className="mt-4 rounded-[18px] border border-line bg-surface/40 p-4 shadow-l2 md:p-6">{projection && run ? (run.status === "RECOVERED" ? <RecoveryResultView tab={resultTab} trip={presentTrip(trip!)} result={projection.result} candidates={projection.candidates} selectedId={projection.selectedId} disruption={presentImpact({ source: "SIMULATED", scenarioId: profileId, bookingId: profile?.bookingId ?? "", kind: profile?.kind ?? "delay", ...(profile?.kind === "delay" ? { delayMinutes: delay } : {}) }, run.impact)} onRestart={resetResult} /> : <NoFeasibleView tab={resultTab} trip={presentTrip(trip!)} result={projection.result} candidates={projection.candidates} onRestart={resetResult} />) : calculating ? <div className="p-8 text-center text-ink2" role="status">Checking the available journeys…</div> : <div className="p-8 text-center text-ink2">No recovery result is available yet. Return to the input form to try again.</div>}{run && <DependencyChecks run={run} />}</div><div className="mt-5"><Btn variant="ghost" onClick={() => openStep(1)}><ArrowLeft className="size-4" />Back to inputs</Btn></div></section>}
+      {activeStep === 4 && <motion.section key="recovery-results" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : 0.22, ease: "easeOut" }} aria-labelledby="recovery-options" className="mt-5"><div className="rounded-[18px] border border-green/50 bg-green-soft/20 p-5 md:p-6"><p className="font-mono text-[12px] uppercase tracking-[0.14em] text-green-bright">Your options</p><h2 id="recovery-options" className="mt-2 font-display text-2xl font-semibold">Your recovery options</h2><p className="mt-2 text-[15px] text-ink2">Start with our best match. You can still review the full journey or compare the alternatives.</p></div><div role="tablist" aria-label="Recovery result views" className="mt-4 grid gap-2 rounded-2xl border border-line bg-surface/70 p-2 sm:grid-cols-3">{tabs.map(tab => <button key={tab.id} type="button" role="tab" aria-selected={resultTab === tab.id} aria-controls={`recovery-tabpanel-${tab.id}`} onClick={() => setResultTab(tab.id)} className={`rounded-xl border px-3 py-3 text-left transition ${resultTab === tab.id ? "border-green/70 bg-green-soft/45 text-ink" : "border-transparent text-ink2 hover:border-line hover:bg-bg/60"}`}><span className="block text-sm font-semibold">{tab.label}</span><span className="mt-1 block text-xs text-muted">{tab.description}</span></button>)}</div><div id={`recovery-tabpanel-${resultTab}`} role="tabpanel" tabIndex={0} className="mt-4 rounded-[18px] border border-line bg-surface/40 p-4 shadow-l2 md:p-6">{projection && run ? (run.status === "RECOVERED" ? <RecoveryResultView tab={resultTab} trip={presentTrip(trip!)} result={projection.result} candidates={projection.candidates} selectedId={projection.selectedId} disruption={presentImpact({ source: "SIMULATED", scenarioId: profileId, bookingId: profile?.bookingId ?? "", kind: profile?.kind ?? "delay", ...(profile?.kind === "delay" ? { delayMinutes: delay } : {}) }, run.impact)} onRestart={resetResult} /> : <NoFeasibleView tab={resultTab} trip={presentTrip(trip!)} result={projection.result} candidates={projection.candidates} onRestart={resetResult} />) : calculating ? <div className="p-8 text-center text-ink2" role="status">Checking suitable travel options…</div> : <div className="p-8 text-center text-ink2">No recovery result is available yet. Return to the input form to try again.</div>}{run && <DependencyChecks run={run} />}</div><div className="mt-5"><Btn variant="ghost" onClick={() => openStep(1)}><ArrowLeft className="size-4" />Back to my trip</Btn></div></motion.section>}
     </div>
   </main>;
 }

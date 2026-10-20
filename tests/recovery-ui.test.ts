@@ -139,10 +139,10 @@ test("workbench client loads the API catalogue and sends a configured canonical 
 test("workbench exposes an API-backed simulated-data configuration surface", async () => {
   const { RecoveryWorkbench } = await import("@/components/sutra/recovery-workbench");
   const html = renderToStaticMarkup(createElement(RecoveryWorkbench));
-  assert.match(html, /Plan a recovery/);
-  assert.match(html, /SIMULATED DATA/);
-  assert.match(html, /What happened to your journey/);
-  assert.match(html, /Loading simulated journey catalogue/);
+  assert.match(html, /Tell us about your trip/);
+  assert.match(html, /DEMO · SAMPLE TRIPS/);
+  assert.match(html, /Finding trips you can choose from/);
+  assert.match(html, /Your trip and preferences/);
 });
 
 test("presentation renders validator-provided delayed timing and connection buffers", async () => {
