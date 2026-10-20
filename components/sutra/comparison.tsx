@@ -151,7 +151,7 @@ export function RecoveryComparison({ candidates, selectedId, trip, heading, intr
             </div>
             <div className="max-h-[65vh] space-y-4 overflow-y-auto p-4 md:p-5">
               {!inspected.feasible && <div role="alert" className="rounded-xl border border-danger/40 bg-danger/5 p-3 text-[13px] text-danger">
-                This candidate doesn't meet every requirement, so it is shown for comparison only and is not a recommended recovery.
+                This candidate does not meet every requirement, so it is shown for comparison only and is not a recommended recovery.
               </div>}
               {inspected.violations.map(v => <p key={v.kind + "-" + v.bookingId + "-" + v.message} className="text-[13px] text-danger">✕ {v.bookingId}: {v.message}</p>)}
               <JourneyBand bookings={inspected.itinerary} currency={cur} diffs={inspectedDiffs} />
@@ -163,7 +163,7 @@ export function RecoveryComparison({ candidates, selectedId, trip, heading, intr
               </dl>
               {!inspected.feasible && (
                 <div className="rounded-xl border border-danger/40 bg-danger/5 p-3">
-                  <p className="font-medium text-[13px] text-danger">Why it doesn't fit</p>
+                  <p className="font-medium text-[13px] text-danger">Why it does not fit</p>
                   <ul className="mt-2 space-y-1 text-[13px] text-danger">{inspected.violations.map(v => <li key={v.kind + "-" + v.bookingId + "-" + v.message}>{v.kind}: {v.message}</li>)}</ul>
                 </div>
               )}
