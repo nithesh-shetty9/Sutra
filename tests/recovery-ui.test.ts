@@ -160,7 +160,7 @@ test("presentation renders validator-provided delayed timing and connection buff
   assert.deepEqual(rcA.connectionChecks?.[0] && { departure: rcA.connectionChecks[0].replacementDepartureAt, buffer: rcA.connectionChecks[0].actualBufferMinutes, minimum: rcA.connectionChecks[0].minimumBufferMinutes }, { departure: "2026-11-10T15:30:00", buffer: 30, minimum: 30 });
   assert.deepEqual(rcB.connectionChecks?.[0] && { departure: rcB.connectionChecks[0].replacementDepartureAt, buffer: rcB.connectionChecks[0].actualBufferMinutes, minimum: rcB.connectionChecks[0].minimumBufferMinutes }, { departure: "2026-11-10T16:00:00", buffer: 60, minimum: 30 });
   const { RecoveryResultView } = await import("@/components/sutra/result");
-  const html = renderToStaticMarkup(createElement(RecoveryResultView, { trip: presentTrip(goldenTrip), result: projected.result, candidates: projected.candidates, selectedId: projected.selectedId, onRestart: noop }));
+  const html = renderToStaticMarkup(createElement(RecoveryResultView, { tab: "journey", trip: presentTrip(goldenTrip), result: projected.result, candidates: projected.candidates, selectedId: projected.selectedId, onRestart: noop }));
   assert.match(html, /Disrupted timing/);
   assert.match(html, /Disrupted/);
   assert.doesNotMatch(html, /CHANGED RAIL-A/);
@@ -183,6 +183,32 @@ test("journey timeline separates the original plan from the recommended validato
   assert.match(html, /Previewing changes this view only/);
   assert.match(html, /RC-A.*Recommended/);
   assert.doesNotMatch(html, /RC-C.*Previewing changes/);
+});
+
+test("comparison keeps an inspected itinerary beside the recovery options", async () => {
+  const run = await runRecovery({ tripId: goldenTrip.id, tripVersion: goldenTrip.version, disruption: goldenDisruption });
+  assert.equal(run.status, "RECOVERED");
+  if (run.status !== "RECOVERED") return;
+
+  const { RecoveryComparison } = await import("@/components/sutra/comparison");
+  const projected = presentRun(goldenTrip, run);
+  const html = renderToStaticMarkup(createElement(RecoveryComparison, {
+    candidates: projected.candidates,
+    selectedId: projected.selectedId,
+    trip: presentTrip(goldenTrip),
+    heading: "Alternatives compared",
+    intro: "Inspect each option before deciding.",
+  }));
+
+  const selected = projected.candidates.find(candidate => candidate.id === projected.selectedId);
+  assert.ok(selected, "the recovery result should have a selected candidate");
+  assert.ok(html.includes(`${selected.id} · ${selected.label}`));
+  assert.match(html, /Available options/);
+  assert.match(html, /Itinerary preview/);
+  assert.match(html, /candidate-itinerary-preview/);
+  assert.match(html, /Inspecting itinerary/);
+  if (projected.candidates.length > 3) assert.match(html, /See your options/);
+  else assert.doesNotMatch(html, /See your options/);
 });
 
 test("frontend renders a technical error distinctly with a retry action", async () => {
