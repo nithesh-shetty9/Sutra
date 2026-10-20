@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import type { Diff, Itinerary, RecoveryCandidate } from "@/lib/types";
 import { day, diffOf, fmtDuration, formatMoney, hm } from "@/lib/format";
@@ -14,6 +14,7 @@ export function RecoveryComparison({ candidates, selectedId, trip, heading, intr
   const reduce = useReducedMotion();
   const [open, setOpen] = useState<string | undefined>(selectedId);
   const [showAll, setShowAll] = useState(false);
+  const previewContentRef = useRef<HTMLDivElement>(null);
   if (!candidates.length) return null;
 
   const cur = trip.currency;
@@ -107,7 +108,10 @@ export function RecoveryComparison({ candidates, selectedId, trip, heading, intr
                       aria-pressed={isOpen}
                       aria-controls="candidate-itinerary-preview"
                       aria-label={(isOpen ? "Inspecting" : "Inspect") + " itinerary for " + c.id}
-                      onClick={() => setOpen(c.id)}
+                      onClick={() => {
+                        setOpen(c.id);
+                        previewContentRef.current?.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+                      }}
                       className={"inline-flex min-h-10 items-center justify-center rounded-[10px] border px-3 py-2 text-[13px] font-medium transition " + (
                         isOpen ? "border-blue/70 bg-blue/10 text-ink"
                         : "border-line-strong text-ink2 hover:border-blue/60 hover:bg-blue/5 hover:text-ink"
@@ -149,7 +153,7 @@ export function RecoveryComparison({ candidates, selectedId, trip, heading, intr
                 {formatMoney(inspected.extraCost, cur)} extra · arrives {hm(inspected.arrival)} · {day(inspected.arrival)}
               </p>
             </div>
-            <div className="max-h-[65vh] space-y-4 overflow-y-auto p-4 md:p-5">
+            <div ref={previewContentRef} className="max-h-[65vh] space-y-4 overflow-y-auto p-4 md:p-5">
               {!inspected.feasible && <div role="alert" className="rounded-xl border border-danger/40 bg-danger/5 p-3 text-[13px] text-danger">
                 This candidate does not meet every requirement, so it is shown for comparison only and is not a recommended recovery.
               </div>}
