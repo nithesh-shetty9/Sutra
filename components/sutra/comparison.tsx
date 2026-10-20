@@ -1,29 +1,10 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Check, X } from "lucide-react";
 import type { Diff, Itinerary, RecoveryCandidate } from "@/lib/types";
 import { day, diffOf, fmtDuration, formatMoney, hm } from "@/lib/format";
 import { JourneyBand } from "./journey-band";
 import { MagicBento } from "./card-effects";
-
-function Row({ label, ok, children }: { label: string; ok?: boolean; children: ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-2.5">
-      <dt className="flex items-center gap-2 text-[13px] text-muted">
-        {ok !== undefined && (
-          <span className={`grid size-5 shrink-0 place-items-center rounded-full ${ok ? "bg-green/20 text-green-bright" : "bg-danger/20 text-danger"}`}>
-            {ok ? <Check aria-hidden className="size-3.5" strokeWidth={3} /> : <X aria-hidden className="size-3.5" strokeWidth={3} />}
-            <span className="sr-only">{ok ? "Satisfied" : "Violated"}</span>
-          </span>
-        )}
-        {label}
-      </dt>
-      <dd className="text-right text-[14px] text-ink">{children}</dd>
-    </div>
-  );
-}
-
 
 /** Candidate options stay beside a live itinerary preview so inspecting an option never
  * sends the traveller to a separate section below the cards. */
