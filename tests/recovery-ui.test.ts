@@ -340,8 +340,9 @@ test("workbench exposes an API-backed simulated-data configuration surface", asy
   const html = renderToStaticMarkup(createElement(RecoveryWorkbench));
   assert.match(html, /Find a way forward/);
   assert.match(html, /SIMULATED DATA/);
-  assert.match(html, /What happened, and what would work for you/);
-  assert.match(html, /Loading simulated journey catalogue/);
+  assert.match(html, /What went wrong with your trip/);
+  // The loading state is announced to assistive technology as a status, not just drawn as placeholders.
+  assert.match(html, /role="status"[^>]*>\s*<span class="sr-only">Finding your trips/);
 });
 
 test("presentation renders validator-provided delayed timing and connection buffers", async () => {

@@ -45,12 +45,12 @@ export function SpringCheck({ ok, label, detail, delay = 0 }: { ok: boolean; lab
   const reduce = useReducedMotion();
   return (
     <motion.li
-      initial={reduce ? false : { opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay, duration: 0.3 }}
+      initial={reduce ? false : { opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay, duration: 0.2, ease: "easeOut" }}
       className="flex items-start gap-3 py-2"
     >
       <motion.span
         initial={reduce ? false : { scale: 0.4 }} animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 520, damping: 16, delay: delay + 0.05 }}
+        transition={{ type: "spring", stiffness: 600, damping: 24, delay: delay + 0.02 }}
         className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-[8px] border ${ok ? "border-green bg-green text-bg" : "border-danger bg-danger/15 text-danger"}`}
       >
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden>
@@ -60,7 +60,7 @@ export function SpringCheck({ ok, label, detail, delay = 0 }: { ok: boolean; lab
       </motion.span>
       <span>
         <span className="block text-[15px] text-ink">{label}<span className="sr-only">{ok ? " — satisfied" : " — violated"}</span></span>
-        {detail && <span className="block font-mono text-[13px] text-muted">{detail}</span>}
+        {detail && <span className="block text-[13px] leading-snug text-ink2">{detail}</span>}
       </span>
     </motion.li>
   );

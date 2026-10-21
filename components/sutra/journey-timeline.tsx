@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, CircleAlert, Clock3, Eye, Plane, Route, Train } from "lucide-react";
 import type { DisruptionAnalysis, Itinerary, RecoveryCandidate } from "@/lib/types";
 import { day, fmtDuration, formatMoney, hm } from "@/lib/format";
+import { useFriendly } from "./display-names";
 
 type JourneyTimelineProps = {
   trip: Itinerary;
@@ -55,6 +56,7 @@ function ConnectionChecks({ candidate }: { candidate: RecoveryCandidate }) {
 
 /** Displays only trip facts and validator-produced recovery facts; it never evaluates feasibility. */
 export function JourneyTimeline({ trip, candidates, recommendedId, disruption }: JourneyTimelineProps) {
+  const f = useFriendly();
   const feasible = useMemo(() => candidates.filter((candidate) => candidate.feasible), [candidates]);
   const recommended = feasible.find((candidate) => candidate.id === recommendedId) ?? feasible[0];
   const [previewId, setPreviewId] = useState<string | undefined>(recommended?.id);
@@ -77,7 +79,7 @@ export function JourneyTimeline({ trip, candidates, recommendedId, disruption }:
         <JourneyStops bookings={trip.bookings} original disruption={disruption} />
       </div>
       <div className="rounded-[14px] border border-green/40 bg-green-soft/20 p-4">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Clock3 aria-hidden className="size-4 text-green-bright" /><h4 className="font-medium">Recovery itinerary</h4></div>{preview && <span className="font-mono text-[12px] text-green-bright">{preview.id}{preview.id === recommended?.id ? " · Recommended" : " · Preview"}</span>}</div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Clock3 aria-hidden className="size-4 text-green-bright" /><h4 className="font-medium">Recovery itinerary</h4></div>{preview && <span className="font-mono text-[12px] text-green-bright">{f(preview.id)}{preview.id === recommended?.id ? " · Recommended" : " · Preview"}</span>}</div>
         {preview ? <><JourneyStops bookings={preview.itinerary} /><p className="mt-4 text-[13px] text-ink2">Arrival {hm(preview.arrival)} · additional cost {formatMoney(preview.extraCost, trip.currency)}</p><ConnectionChecks candidate={preview} /></> : <p className="text-[15px] text-muted">No feasible recovery itinerary was returned.</p>}
       </div>
     </div>
@@ -86,8 +88,8 @@ export function JourneyTimeline({ trip, candidates, recommendedId, disruption }:
       <p className="flex items-center gap-2 text-[14px] text-ink"><Eye aria-hidden className="size-4 text-blue-bright" />Preview a feasible alternative</p>
       <p className="mt-1 text-[13px] text-muted">Previewing changes this view only; it does not change Sutra&rsquo;s backend recommendation.</p>
       <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Feasible recovery candidates">
-        {feasible.map((candidate) => <button key={candidate.id} type="button" onClick={() => setPreviewId(candidate.id)} aria-pressed={preview?.id === candidate.id} className={`rounded-[10px] border px-3 py-2 text-left text-[13px] transition ${preview?.id === candidate.id ? "border-green bg-green text-bg" : "border-line bg-bg text-ink hover:border-green"}`}>
-          <span className="font-mono">{candidate.id}</span><span className="mx-1 text-muted">·</span>{hm(candidate.arrival)} · {formatMoney(candidate.extraCost, trip.currency)}{candidate.id === recommended?.id ? " · Recommended" : ""}
+        {feasible.map((candidate) => <button key={candidate.id} type="button" onClick={() => setPreviewId(candidate.id)} aria-pressed={preview?.id === candidate.id} className={`min-h-11 rounded-[10px] border px-3 py-2 text-left text-[13px] transition-[border-color,background-color,color] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-bright ${preview?.id === candidate.id ? "border-green bg-green text-bg" : "border-line bg-bg text-ink hover:border-green"}`}>
+          <span className="font-mono">{f(candidate.id)}</span><span className="mx-1 text-muted">·</span>{hm(candidate.arrival)} · {formatMoney(candidate.extraCost, trip.currency)}{candidate.id === recommended?.id ? " · Recommended" : ""}
         </button>)}
       </div>
     </div>}

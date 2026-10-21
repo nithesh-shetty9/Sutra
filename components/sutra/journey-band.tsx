@@ -5,6 +5,7 @@ import { BedDouble, CalendarDays, Plane, TrainFront, TriangleAlert, Ban } from "
 import type { Booking, Diff, Disruption } from "@/lib/types";
 import { day, fmtDuration, formatMoney, hm, shiftIso } from "@/lib/format";
 import { placeName } from "@/lib/places";
+import { useFriendly } from "./display-names";
 
 const DIFF_STYLE: Record<Diff, string> = {
   UNCHANGED: "border-line-strong text-ink2",
@@ -94,6 +95,7 @@ export function JourneyBand({ bookings, currency, diffs, disruption, highlightId
 function Leg({ leg, index, diff, disruption, currency, animate, domId, highlighted }: {
   leg: Booking; index: number; diff?: Diff; disruption?: Disruption; currency: string; animate: boolean; domId?: string; highlighted: boolean;
 }) {
+  const f = useFriendly();
   const hit = disruption?.bookingId === leg.id ? disruption : undefined;
   const cancelled = hit?.kind === "cancel";
   const delayed = hit?.kind === "delay" && hit.delayMin ? hit.delayMin : 0;
@@ -124,7 +126,7 @@ function Leg({ leg, index, diff, disruption, currency, animate, domId, highlight
       <motion.div animate={pulse} transition={{ delay: delay + 0.5, duration: 1.2 }}
         className={`sutra-card rounded-[14px] border bg-surface p-4 transition-shadow lg:mx-2 lg:mt-2 ${highlighted ? "border-warn ring-2 ring-warn/70 shadow-l2" : hit ? "border-danger/60 shadow-l1" : diff === "NEW" ? "border-green/60" : "border-line"}`}>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[12px] text-muted">{bookingLabel} · {leg.id}</span>
+          <span className="font-mono text-[12px] text-muted">{bookingLabel} · {f(leg.id)}</span>
           <span className="text-[14px] text-ink2">{leg.origin} → {leg.dest}</span>
           {hit ? null : disrupted ? <span className="ml-auto rounded-full border border-warn px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-warn">Disrupted</span> : diff && <span className="ml-auto"><DiffBadge d={diff} /></span>}
         </div>

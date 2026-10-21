@@ -3,7 +3,7 @@ import React from "react";
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "motion/react";
-import { RotateCcw, ServerCrash } from "lucide-react";
+import { Loader2, RotateCcw, ServerCrash } from "lucide-react";
 import type { ApiError, Booking, Diff, DisruptionAnalysis, Itinerary } from "@/lib/types";
 import { day, fmtDuration, formatMoney, hm } from "@/lib/format";
 import { placeName } from "@/lib/places";
@@ -11,6 +11,7 @@ import { JourneyBand } from "./journey-band";
 import { AffectedBookings, IMPACT_LABEL } from "./affected";
 import { SEARCH_STAGES } from "../../hooks/use-recovery-flow";
 import { StatusMark, TextLoop, ThoughtLine } from "./kit";
+import { useEntranceEnabled } from "./ui-motion";
 
 const TravelGlobe = dynamic(() => import("./travel-globe").then(module => module.TravelGlobe), {
   ssr: false,
@@ -18,21 +19,23 @@ const TravelGlobe = dynamic(() => import("./travel-globe").then(module => module
 });
 
 /* ───────── shared primitives ───────── */
-export function Btn({ children, onClick, variant = "primary", disabled = false }: { children: ReactNode; onClick: () => void; variant?: "primary" | "ghost" | "neutral"; disabled?: boolean }) {
+export function Btn({ children, onClick, variant = "primary", disabled = false, loading = false, className = "" }: { children: ReactNode; onClick: () => void; variant?: "primary" | "ghost" | "neutral"; disabled?: boolean; loading?: boolean; className?: string }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center gap-2 rounded-[10px] px-5 py-2.5 text-[15px] font-medium transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 ${
-        variant === "primary" ? "bg-green text-bg hover:bg-green-bright" : variant === "neutral" ? "bg-ink text-bg hover:bg-ink2" : "border border-line-strong text-ink2 hover:bg-soft hover:text-ink"}`}>
+    <button type="button" onClick={onClick} disabled={disabled || loading} aria-busy={loading || undefined}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] px-5 py-2.5 text-[15px] font-medium transition-[background-color,color,transform,opacity] duration-150 active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-bright disabled:cursor-not-allowed disabled:opacity-60 ${
+        variant === "primary" ? "bg-green text-bg hover:bg-green-bright" : variant === "neutral" ? "bg-ink text-bg hover:bg-ink2" : "border border-line-strong text-ink2 hover:bg-soft hover:text-ink"} ${className}`}>
+      {loading && <Loader2 aria-hidden className="sutra-spin size-4" />}
       {children}
     </button>
   );
 }
 export function Section({ id, kicker, title, children, tone = "default" }: { id: string; kicker: string; title: ReactNode; children: ReactNode; tone?: "default" | "danger" | "warn" | "success" }) {
   const reduce = useReducedMotion();
+  const entrance = useEntranceEnabled();
   const kc = { default: "text-muted", danger: "text-danger", warn: "text-warn", success: "text-green-bright" }[tone];
   return (
     <motion.section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-24 py-12 md:py-16"
-      initial={reduce ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: "easeOut" }}>
+      initial={reduce || !entrance ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: "easeOut" }}>
       <p className={`font-mono text-[12px] uppercase tracking-[0.18em] ${kc}`}>{kicker}</p>
       <h2 id={`${id}-h`} tabIndex={-1} className="mt-2 outline-none font-display text-[clamp(2rem,4.6vw,3.5rem)] font-semibold leading-[1.05] tracking-tight text-ink">{title}</h2>
       <div className="mt-8 space-y-8">{children}</div>

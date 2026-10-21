@@ -1,30 +1,20 @@
 "use client";
-import { useEffect, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
 import type { Booking, Diff } from "@/lib/types";
 import { hm } from "@/lib/format";
 import { placeName } from "@/lib/places";
 import { DiffBadge } from "./journey-band";
 import { StatusMark } from "./kit";
+import { useFriendly } from "./display-names";
 
 const STEPS = ["Journey broken", "Impact traced", "Recovery selected", "Journey repaired"];
 
 /** broken journey → downstream impact → recovery selected → repaired journey.
- *  Marks light up in sequence (≈1.5s total); with reduced motion everything is shown immediately. */
+ *  This is the story of a result that already exists, so it is shown complete straight away (nothing is "in progress"). */
 export function RepairTimeline() {
-  const reduce = useReducedMotion();
-  const [cur, setCur] = useState(-1);
-  useEffect(() => {
-    if (reduce) { setCur(STEPS.length - 1); return; }
-    let i = 0;
-    const t = setInterval(() => { setCur(i); i += 1; if (i >= STEPS.length) clearInterval(t); }, 380);
-    return () => clearInterval(t);
-  }, [reduce]);
+  const cur = STEPS.length - 1;
   return (
     <ol aria-label="Repair sequence" className="relative grid max-w-2xl grid-cols-4 gap-2">
-      <span aria-hidden className="absolute left-[12.5%] right-[12.5%] top-[13px] h-px bg-line" />
-      <motion.span aria-hidden className="absolute left-[12.5%] top-[13px] h-px origin-left bg-gradient-to-r from-warn via-green to-green-bright"
-        style={{ right: "12.5%" }} animate={{ scaleX: reduce ? 1 : Math.max(0, cur) / (STEPS.length - 1) }} transition={{ duration: 0.35, ease: "easeOut" }} />
+      <span aria-hidden className="absolute left-[12.5%] right-[12.5%] top-[13px] h-px bg-gradient-to-r from-warn via-green to-green-bright" />
       {STEPS.map((s, i) => (
         <li key={s} className="relative flex flex-col items-center gap-2 text-center">
           <span className="grid place-items-center rounded-full bg-bg p-0.5">
@@ -42,6 +32,7 @@ const route = (b: Booking) => b.kind === "hotel" ? `Accommodation · ${placeName
 
 /** Explicit before/after accounting: unchanged, changed, new, affected, and what was replaced. */
 export function WhatChanged({ original, repaired, diffs }: { original: Booking[]; repaired: Booking[]; diffs: Record<string, Diff> }) {
+  const f = useFriendly();
   const removed = original.filter(o => !repaired.some(r => r.id === o.id));
   const legend: { d: Diff; text: string }[] = [
     { d: "UNCHANGED", text: "kept as booked" }, { d: "CHANGED", text: "changed by recovery" },
@@ -57,7 +48,7 @@ export function WhatChanged({ original, repaired, diffs }: { original: Booking[]
         {removed.map(b => (
           <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
             <span className="rounded-full border border-danger px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-danger">Replaced</span>
-            <span className="font-mono text-[13px] text-muted">{b.id}</span>
+            <span className="text-[13px] text-muted">{f(b.id)}</span>
             <span className="text-[15px] text-muted line-through">{route(b)} · {range(b)}</span>
           </li>
         ))}
@@ -66,7 +57,7 @@ export function WhatChanged({ original, repaired, diffs }: { original: Booking[]
           return (
             <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
               <DiffBadge d={diffs[b.id]} />
-              <span className="font-mono text-[13px] text-muted">{b.id}</span>
+              <span className="text-[13px] text-muted">{f(b.id)}</span>
               <span className="text-[15px] text-ink">{route(b)} · {range(b)}</span>
               {(diffs[b.id] === "CHANGED" || diffs[b.id] === "DISRUPTED") && o && <span className="text-[13px] text-muted">was {range(o)}</span>}
             </li>

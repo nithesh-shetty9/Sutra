@@ -270,6 +270,10 @@ body {
 @keyframes sutra-spin { to { transform: rotate(360deg); } }
 .sutra-spin { animation: sutra-spin 1.1s linear infinite; transform-origin: center; }
 
+/* Loading placeholders: a soft opacity pulse only. The reduced-motion block below stops it. */
+@keyframes sutra-skeleton { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.sutra-skeleton { background: var(--soft); border-radius: 12px; animation: sutra-skeleton 1.4s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
