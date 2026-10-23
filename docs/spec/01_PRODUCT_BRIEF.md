@@ -12,7 +12,7 @@ Sutra helps a traveller recover a planned trip when a transport disruption or a 
 
 This is not a general trip-planning or booking marketplace. Its core job is to detect or simulate a disruption, identify what it affects, evaluate alternatives against explicit constraints, and show the traveller what to do next.
 
-The hackathon target and phased delivery plan are defined in [`../HACKATHON_PRODUCT_PLAN.md`](../HACKATHON_PRODUCT_PLAN.md). The current frontend remains a synthetic flight-recovery prototype until it is deliberately migrated.
+The frozen hackathon product and engineering baseline is in [`../planning/`](../planning/). The current implementation uses simulated recovery data, with a manual RailRadar train-status lookup available separately; live status does not drive recovery alternatives.
 
 ## 2. Problem and target traveller journey
 
@@ -129,6 +129,6 @@ The core end-to-end demo is successful when a reviewer can start from a trip, tr
 
 ## 10. Current prototype status
 
-The current frontend is a useful workflow and visual-design baseline, not the target rail-and-destination product. It has four deterministic query-parameter scenarios: flight delay, flight cancellation, no feasible recovery, and a retriable technical error. The disruption must be triggered in the UI. It does not monitor live rail status or destination events.
+The current frontend is a useful workflow and visual-design baseline, not the full target rail-and-destination product. It includes deterministic recovery scenarios, including flight delay, flight cancellation, no feasible recovery, and a retriable technical error; disruptions are triggered in the UI. It also offers a manual RailRadar train-status lookup. It does not poll for rail or destination events, and live status does not recalculate the simulated recovery alternatives.
 
-Do not remove the current implementation until the replacement end-to-end flow is designed and verified. See [`../HACKATHON_PRODUCT_PLAN.md`](../HACKATHON_PRODUCT_PLAN.md) for the migration sequence and demo target.
+Do not remove the current implementation until the replacement end-to-end flow is designed and verified. See [`../planning/`](../planning/) for the frozen implementation baseline and demo target.

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-labelledby="t d">
+  <title id="t">Sutra: when travel breaks, Sutra repairs the journey</title>
+  <desc id="d">A three-station rail route. The first leg is marked delayed in amber; the onward leg is replaced by a validated alternative route in green.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07110e"/>
+      <stop offset="0.55" stop-color="#0f3a2e"/>
+      <stop offset="1" stop-color="#172b46"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="340" rx="18" fill="url(#bg)"/>
+  <g fill="#ffffff" opacity="0.35">
+    <circle cx="90" cy="60" r="1.5"/><circle cx="210" cy="30" r="1"/><circle cx="1010" cy="48" r="1.5"/>
+    <circle cx="1120" cy="110" r="1"/><circle cx="140" cy="150" r="1"/><circle cx="1060" cy="205" r="1.5"/>
+    <circle cx="70" cy="270" r="1"/><circle cx="1150" cy="290" r="1.5"/><circle cx="480" cy="26" r="1"/><circle cx="760" cy="40" r="1"/>
+  </g>
+  <g font-family="'Segoe UI',Helvetica,Arial,sans-serif" text-anchor="middle">
+    <text x="600" y="92" font-size="68" font-weight="700" fill="#f4f1ea" letter-spacing="1">Sutra</text>
+    <text x="600" y="136" font-size="24" fill="#cfe9dd">When travel breaks, Sutra repairs the journey.</text>
+
+    <!-- original route -->
+    <line x1="260" y1="262" x2="600" y2="262" stroke="#e8b44c" stroke-width="4" stroke-linecap="round"/>
+    <line x1="600" y1="262" x2="940" y2="262" stroke="#5b6b66" stroke-width="3" stroke-dasharray="3 9" stroke-linecap="round"/>
+    <!-- delay marker -->
+    <circle cx="430" cy="262" r="12" fill="#07110e" stroke="#e8b44c" stroke-width="3"/>
+    <text x="430" y="267" font-size="15" font-weight="700" fill="#e8b44c">!</text>
+    <text x="430" y="234" font-size="14" fill="#e8b44c">delayed leg</text>
+    <!-- recovery route -->
+    <path d="M600 262 C 665 196, 875 196, 940 262" fill="none" stroke="#4fd18b" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="770" cy="215" r="12" fill="#07110e" stroke="#4fd18b" stroke-width="3"/>
+    <path d="M764 215 l4.5 4.5 l8 -9" fill="none" stroke="#4fd18b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="770" y="188" font-size="14" fill="#4fd18b">validated replacement</text>
+    <!-- stations -->
+    <g fill="#07110e" stroke="#4fd18b" stroke-width="3">
+      <circle cx="260" cy="262" r="10"/><circle cx="600" cy="262" r="10"/><circle cx="940" cy="262" r="10"/>
+    </g>
+    <g font-size="15" fill="#b7d0c5">
+      <text x="260" y="302">Mangaluru Central</text>
+      <text x="600" y="302">Hassan Junction</text>
+      <text x="940" y="302">Mysuru Junction</text>
+    </g>
+  </g>
+</svg>
